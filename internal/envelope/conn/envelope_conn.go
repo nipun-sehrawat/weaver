@@ -265,6 +265,7 @@ func (e *EnvelopeConn) GetMetricsRPC() ([]*metrics.MetricSnapshot, error) {
 }
 
 // GetHealthRPC gets a weavelet's health.
+// TODO(nipuns): We need to return component-level statuses here.
 func (e *EnvelopeConn) GetHealthRPC() (protos.HealthStatus, error) {
 	req := &protos.EnvelopeMsg{GetHealthRequest: &protos.GetHealthRequest{}}
 	reply, err := e.rpc(req)

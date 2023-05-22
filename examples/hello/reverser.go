@@ -15,6 +15,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ServiceWeaver/weaver"
 )
@@ -22,6 +23,7 @@ import (
 // Reverser component.
 type Reverser interface {
 	Reverse(context.Context, string) (string, error)
+	Healthy(_ context.Context) error
 }
 
 // Implementation of the Reverser component.
@@ -36,4 +38,8 @@ func (r *reverser) Reverse(_ context.Context, s string) (string, error) {
 		runes[i], runes[n-i-1] = runes[n-i-1], runes[i]
 	}
 	return string(runes), nil
+}
+
+func (r *reverser) Healthy(_ context.Context) error {
+	return fmt.Errorf("Reverse is unhealthy!")
 }

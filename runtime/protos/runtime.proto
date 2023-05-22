@@ -200,7 +200,10 @@ message GetHealthRequest {}
 
 // GetHealthReply is a reply to a GetHealthRequest.
 message GetHealthReply {
+  // Overall health status of the weavelet.
   HealthStatus status = 1;
+  // Per-component health status of all the active components on the weavelet.
+  map<string, ComponentHealth> components = 2;
 }
 
 // HealthStatus specifies the health of a weavelet.
@@ -209,6 +212,18 @@ enum HealthStatus {
   HEALTHY = 1;
   UNHEALTHY = 2;
   TERMINATED = 3;
+}
+
+// ComponentHealth specifies the health of a component hosted on a weavelet.
+message ComponentHealth {
+  enum Status {
+    UNKNOWN = 0;
+    INITIALIZING = 1;
+    HEALTHY = 2;
+    UNHEALTHY = 3;
+  }
+  Status status = 1;
+  string msg = 2;
 }
 
 // GetMetricsRequest is a request from an envelope for a weavelet's metrics.

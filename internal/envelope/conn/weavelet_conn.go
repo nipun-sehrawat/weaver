@@ -45,6 +45,9 @@ type WeaveletHandler interface {
 
 	// UpdateRoutingInfo updates a component's routing information.
 	UpdateRoutingInfo(*protos.UpdateRoutingInfoRequest) (*protos.UpdateRoutingInfoReply, error)
+
+	// GetHealth returns the health of the weavelet.
+	GetHealth(*protos.GetHealthRequest) (*protos.GetHealthReply, error)
 }
 
 // WeaveletConn is the weavelet side of the connection between a weavelet and
@@ -175,9 +178,11 @@ func (w *WeaveletConn) handleMessage(msg *protos.EnvelopeMsg) error {
 			GetMetricsReply: &protos.GetMetricsReply{Update: update},
 		})
 	case msg.GetHealthRequest != nil:
+		reply, err := w.handler.GetHealth(msg.GetHealthRequest)
 		return w.conn.send(&protos.WeaveletMsg{
 			Id:             -msg.Id,
-			GetHealthReply: &protos.GetHealthReply{Status: protos.HealthStatus_HEALTHY},
+			Error:          errstring(err),
+			GetHealthReply: reply,
 		})
 	case msg.GetLoadRequest != nil:
 		reply, err := w.handler.GetLoad(msg.GetLoadRequest)

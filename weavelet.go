@@ -411,7 +411,7 @@ func (w *weavelet) GetLoad(*protos.GetLoadRequest) (*protos.GetLoadReply, error)
 	return &protos.GetLoadReply{Load: report}, nil
 }
 
-// UpdateComponents implements the conn.WeaverHandler interface.
+// UpdateComponents implements the conn.WeaveletHandler interface.
 func (w *weavelet) UpdateComponents(req *protos.UpdateComponentsRequest) (*protos.UpdateComponentsReply, error) {
 	// Create components in a separate goroutine. A component's Init function
 	// may be slow or block. It may also call weaver.Get which will trigger
@@ -443,7 +443,7 @@ func (w *weavelet) UpdateComponents(req *protos.UpdateComponentsRequest) (*proto
 	return &protos.UpdateComponentsReply{}, nil
 }
 
-// UpdateRoutingInfo implements the conn.WeaverHandler interface.
+// UpdateRoutingInfo implements the conn.WeaveletHandler interface.
 func (w *weavelet) UpdateRoutingInfo(req *protos.UpdateRoutingInfoRequest) (reply *protos.UpdateRoutingInfoReply, err error) {
 	logger := w.env.SystemLogger().With(
 		"component", req.RoutingInfo.Component,
@@ -484,6 +484,46 @@ func (w *weavelet) UpdateRoutingInfo(req *protos.UpdateRoutingInfoRequest) (repl
 	// Update local.
 	c.local.TryWrite(req.RoutingInfo.Local)
 	return &protos.UpdateRoutingInfoReply{}, nil
+}
+
+// GetHealth implements conn.WeaveletHandler interface.
+func (w *weavelet) GetHealth(req *protos.GetHealthRequest) (*protos.GetHealthReply, error) {
+	reply := &protos.GetHealthReply{
+		Status:     protos.HealthStatus_HEALTHY,
+		Components: map[string]*protos.ComponentHealth{},
+	}
+	// TODO(nipuns): How to find out if a component is being initializing?
+	for _, c := range w.componentsByName {
+		fmt.Println("Weavelet::GetHealth() for component: ", c.info.Name)
+		chealth := &protos.ComponentHealth{}
+		// Can this health checking driven initialization be problematic somehow?
+		// Yes: This calls Init() on the component, which can take a long time to finish.
+		// cimpl, err := w.getImpl(c)
+		// TODO(nipuns): When would this happen?  Should weavelet be reporting health for such components?
+		if c.impl == nil {
+			// fmt.Printf("Weavelet::GetHealth() component: %s couldn't be initialized: %v\n", c.info.Name, err)
+			fmt.Printf("Weavelet::GetHealth() component: %s hasn't been initialized yet\n", c.info.Name)
+			chealth.Status = protos.ComponentHealth_UNKNOWN
+			continue
+		}
+		// Call Healthy() if available.
+		i, ok := c.impl.impl.(interface{ Healthy(context.Context) error })
+		if !ok {
+			fmt.Printf("Weavelet::GetHealth() component: %s doesn't have Healthy() method\n", c.info.Name)
+			// Components without a Healthy() method are considered to always be healthy.
+			chealth.Status = protos.ComponentHealth_HEALTHY
+		} else if err := i.Healthy(w.ctx); err != nil {
+			chealth.Status = protos.ComponentHealth_UNHEALTHY
+			chealth.Msg = err.Error()
+			// Weavelet's overall health becomes unhealthy if even one of the components is unhealthy.
+			reply.Status = protos.HealthStatus_UNHEALTHY
+		} else {
+			chealth.Status = protos.ComponentHealth_HEALTHY
+		}
+		reply.Components[c.info.Name] = chealth
+	}
+	fmt.Println("Weavelet::GetHealth() called", reply)
+	return reply, nil
 }
 
 // getComponent returns the component with the given name.
